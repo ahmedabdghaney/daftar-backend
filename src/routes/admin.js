@@ -139,11 +139,11 @@ const PAGE = String.raw`<!doctype html>
   .bar span { position:absolute; bottom:-18px; left:50%; transform:translateX(50%); font-size:9px; color:var(--muted); white-space:nowrap; }
   .barwrap { padding-bottom:20px; }
   .toolbar { display:flex; gap:10px; margin-bottom:14px; align-items:center; flex-wrap:wrap; }
-  .toolbar input { flex:1; min-width:160px; padding:11px 14px; border-radius:10px; border:1px solid var(--line); background:#0f1216; color:var(--text); font-size:14px; }
+  .toolbar { display:block; } .toolbar input { width:100%; padding:11px 14px; border-radius:10px; border:1px solid var(--line); background:#0f1216; color:var(--text); font-size:14px; }
   .btn { background:transparent; border:1px solid var(--line); color:var(--text); padding:11px 16px; border-radius:10px; cursor:pointer; font-size:13px; }
   .btn.p { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:700; }
-  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
-  th, td { text-align:right; padding:12px 14px; font-size:14px; border-bottom:1px solid var(--line); }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; direction:rtl; table-layout:fixed; }
+  th, td { text-align:right; padding:12px 14px; font-size:14px; border-bottom:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   th { color:var(--muted); font-weight:600; font-size:12px; background:#0f1216; }
   tr:last-child td { border-bottom:0; }
   tbody tr { cursor:pointer; }
@@ -206,7 +206,7 @@ const PAGE = String.raw`<!doctype html>
     </div>
 
     <table>
-      <thead><tr><th>الاسم</th><th>الإيميل</th><th>الدخول</th><th>الشهور</th><th>التسجيل</th><th></th></tr></thead>
+      <thead><tr><th style="width:18%">الاسم</th><th style="width:28%">الإيميل</th><th style="width:14%">الدخول</th><th style="width:10%">الشهور</th><th style="width:18%">التسجيل</th><th style="width:12%">إجراء</th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
   </div>
