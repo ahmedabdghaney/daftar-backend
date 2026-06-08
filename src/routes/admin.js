@@ -151,7 +151,7 @@ const PAGE = String.raw`<!doctype html>
   .tag { font-size:11px; padding:2px 8px; border-radius:20px; background:#1d2330; color:var(--muted); }
   .tag.g { background:rgba(52,199,89,.15); color:var(--green); }
   .del { color:var(--red); border:0; background:transparent; cursor:pointer; font-size:13px; }
-  .hide { display:none; }
+  .hide { display:none !important; }
   .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
   .modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:20px; z-index:10; }
   .modal .box { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:24px; max-width:440px; width:100%; }
