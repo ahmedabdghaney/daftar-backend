@@ -10,8 +10,11 @@ create table if not exists users (
   display_name  text not null default '',
   photo_url     text not null default '',
   auth_provider text not null default 'email',  -- 'email' / 'google'
+  banned        boolean not null default false,
   created_at    timestamptz not null default now()
 );
+-- لو الجدول موجود من قبل بدون العمود
+alter table users add column if not exists banned boolean not null default false;
 
 create table if not exists user_settings (
   user_id               uuid primary key references users(id) on delete cascade,

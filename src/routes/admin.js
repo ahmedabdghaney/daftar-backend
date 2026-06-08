@@ -51,7 +51,7 @@ router.get('/users', requireAdmin, async (req, res, next) => {
     let where = '';
     if (q) { params.push('%' + q + '%'); where = 'where lower(u.email) like $1 or lower(u.display_name) like $1'; }
     const users = await pool.query(`
-      select u.id, u.email, u.display_name, u.auth_provider, u.created_at,
+      select u.id, u.email, u.display_name, u.auth_provider, u.photo_url, u.banned, u.created_at,
              (select count(*) from months m where m.user_id = u.id) as months
       from users u ${where}
       order by u.created_at desc`, params);
@@ -76,6 +76,15 @@ router.get('/users/:id', requireAdmin, async (req, res, next) => {
       daily: Number(counts.daily), fixed: Number(counts.fixed),
       loans: Number(counts.loans), gifts: Number(counts.gifts)
     }});
+  } catch (err) { next(err); }
+});
+
+// حظر / فك حظر مستخدم
+router.post('/users/:id/ban', requireAdmin, async (req, res, next) => {
+  try {
+    const banned = !!(req.body && req.body.banned);
+    await pool.query('update users set banned=$2 where id=$1', [req.params.id, banned]);
+    res.json({ ok: true, banned });
   } catch (err) { next(err); }
 });
 
@@ -150,6 +159,14 @@ const PAGE = String.raw`<!doctype html>
   tbody tr:hover { background:#1a1e25; }
   .tag { font-size:11px; padding:2px 8px; border-radius:20px; background:#1d2330; color:var(--muted); }
   .tag.g { background:rgba(52,199,89,.15); color:var(--green); }
+  .avatar { width:34px; height:34px; border-radius:50%; object-fit:cover; background:#1d2330; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--muted); vertical-align:middle; }
+  .name-cell { display:flex; align-items:center; gap:10px; }
+  .banned-badge { font-size:10px; padding:2px 7px; border-radius:20px; background:rgba(255,91,82,.15); color:var(--red); margin-right:6px; }
+  .act { background:transparent; border:0; cursor:pointer; font-size:13px; padding:4px 6px; }
+  .act.ban { color:#e6a23c; }
+  .act.unban { color:var(--green); }
+  .act.del { color:var(--red); }
+  tr.is-banned { opacity:.55; }
   .del { color:var(--red); border:0; background:transparent; cursor:pointer; font-size:13px; }
   .hide { display:none !important; }
   .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
@@ -206,7 +223,7 @@ const PAGE = String.raw`<!doctype html>
     </div>
 
     <table>
-      <thead><tr><th style="width:18%">الاسم</th><th style="width:28%">الإيميل</th><th style="width:14%">الدخول</th><th style="width:10%">الشهور</th><th style="width:18%">التسجيل</th><th style="width:12%">إجراء</th></tr></thead>
+      <thead><tr><th style="width:18%">الاسم</th><th style="width:14%">الإيميل</th><th style="width:10%">الدخول</th><th style="width:8%">الشهور</th><th style="width:14%">التسجيل</th><th style="width:18%">إجراء</th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
   </div>
@@ -257,13 +274,21 @@ async function loadUsers(q){
   const d = await r.json();
   const rows = d.users.map(function(u){
     const prov = u.auth_provider === 'google' ? '<span class="tag g">Google</span>' : '<span class="tag">Email</span>';
-    return '<tr onclick="openUser(\'' + u.id + '\')">' +
-      '<td>'+(u.display_name||'—')+'</td>' +
+    const initial = (u.display_name || u.email || '?').trim().charAt(0).toUpperCase();
+    const avatar = u.photo_url
+      ? '<img class="avatar" src="'+u.photo_url+'" onerror="this.outerHTML=\'<span class=&quot;avatar&quot;>'+initial+'</span>\'"/>'
+      : '<span class="avatar">'+initial+'</span>';
+    const bannedBadge = u.banned ? '<span class="banned-badge">محظور</span>' : '';
+    const banBtn = u.banned
+      ? '<button class="act unban" onclick="event.stopPropagation(); toggleBan(\'' + u.id + '\', false)">فك الحظر</button>'
+      : '<button class="act ban" onclick="event.stopPropagation(); toggleBan(\'' + u.id + '\', true)">حظر</button>';
+    return '<tr class="' + (u.banned ? 'is-banned' : '') + '" onclick="openUser(\'' + u.id + '\')">' +
+      '<td><div class="name-cell">'+avatar+'<span>'+bannedBadge+(u.display_name||'—')+'</span></div></td>' +
       '<td>'+(u.email||'—')+'</td>' +
       '<td>'+prov+'</td>' +
       '<td>'+u.months+'</td>' +
       '<td>'+fmtDate(u.created_at)+'</td>' +
-      '<td><button class="del" onclick="event.stopPropagation(); delUser(\'' + u.id + '\',\'' + (u.email||'') + '\')">حذف</button></td>' +
+      '<td style="white-space:nowrap">'+banBtn+'<button class="act del" onclick="event.stopPropagation(); delUser(\'' + u.id + '\',\'' + (u.email||'') + '\')">حذف</button></td>' +
     '</tr>';
   }).join('');
   document.getElementById('rows').innerHTML = rows || '<tr><td colspan="6" style="color:var(--muted)">لا يوجد مستخدمين</td></tr>';
@@ -294,6 +319,17 @@ async function openUser(id){
   document.getElementById('modal').classList.remove('hide');
 }
 function closeModal(){ document.getElementById('modal').classList.add('hide'); }
+
+async function toggleBan(id, banned){
+  const msg = banned ? 'حظر هذا المستخدم؟ ما راح يگدر يسجّل دخول.' : 'فك الحظر عن هذا المستخدم؟';
+  if (!confirm(msg)) return;
+  const r = await fetch('/admin/users/'+id+'/ban', {
+    method:'POST',
+    headers:{ 'x-admin-key': KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify({ banned: banned })
+  });
+  if (r.ok) loadUsers(document.getElementById('search').value || '');
+}
 
 async function delUser(id, email){
   if (!confirm('حذف المستخدم '+email+' وكل بياناته؟')) return;

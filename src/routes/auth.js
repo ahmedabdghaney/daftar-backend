@@ -34,8 +34,9 @@ router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body || {};
     const e = (email || '').toLowerCase().trim();
-    const r = await pool.query('select id, password_hash from users where email=$1', [e]);
+    const r = await pool.query('select id, password_hash, banned from users where email=$1', [e]);
     if (!r.rowCount || !r.rows[0].password_hash) return res.status(401).json({ error: 'bad_credentials' });
+    if (r.rows[0].banned) return res.status(403).json({ error: 'banned' });
     const ok = await compare(password || '', r.rows[0].password_hash);
     if (!ok) return res.status(401).json({ error: 'bad_credentials' });
     res.json({ token: sign(r.rows[0].id), user: await publicUser(r.rows[0].id) });
@@ -58,9 +59,10 @@ router.post('/google', async (req, res, next) => {
     const name = p.name || '';
     const photo = p.picture || '';
 
-    const found = await pool.query('select id from users where email=$1', [email]);
+    const found = await pool.query('select id, banned from users where email=$1', [email]);
     let id;
     if (found.rowCount) {
+      if (found.rows[0].banned) return res.status(403).json({ error: 'banned' });
       id = found.rows[0].id;
       await pool.query(
         "update users set display_name = coalesce(nullif(display_name,''), $2), photo_url=$3, auth_provider='google' where id=$1",
