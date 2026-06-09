@@ -123,3 +123,21 @@ create table if not exists group_items (
   amount    double precision not null default 0,
   date      text not null default ''
 );
+
+-- ===== تحقق الإيميل + رموز OTP/إعادة التعيين =====
+-- عمود التفعيل (المستخدمين الحاليين يصيرون مفعّلين تلقائياً)
+alter table users add column if not exists email_verified boolean not null default false;
+update users set email_verified = true where created_at < now();
+
+-- رموز مؤقتة: نوع 'verify' لتفعيل التسجيل و 'reset' لإعادة الباسوورد
+create table if not exists email_codes (
+  id          uuid primary key default gen_random_uuid(),
+  email       text not null,
+  code_hash   text not null,                 -- الرمز مخزّن مشفّر
+  purpose     text not null,                 -- 'verify' / 'reset'
+  payload     jsonb not null default '{}',   -- بيانات التسجيل المؤقتة (الاسم/الباسوورد المشفّر)
+  attempts    integer not null default 0,
+  expires_at  timestamptz not null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_email_codes_lookup on email_codes(email, purpose);

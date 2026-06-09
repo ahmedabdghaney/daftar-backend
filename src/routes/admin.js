@@ -122,7 +122,7 @@ const PAGE = String.raw`<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Daftar — لوحة التحكم</title>
+<title>رصيد — لوحة التحكم</title>
 <style>
   :root { --bg:#0b0d10; --card:#14171c; --line:#262b33; --text:#e8eaed; --muted:#8a93a0; --brand:#1652F0; --green:#34C759; --red:#ff5b52; }
   * { box-sizing:border-box; }
@@ -180,8 +180,8 @@ const PAGE = String.raw`<!doctype html>
 <body>
 <div class="wrap">
   <div class="head">
-    <div class="logo">D</div>
-    <div><h1>Daftar</h1><div class="sub">لوحة التحكم</div></div>
+    <div class="logo">ر</div>
+    <div><h1>رصيد</h1><div class="sub">لوحة التحكم</div></div>
   </div>
 
   <div id="login" class="login">
