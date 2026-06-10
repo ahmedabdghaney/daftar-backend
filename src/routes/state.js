@@ -31,6 +31,11 @@ router.get('/', async (req, res, next) => {
       hiddenCategories: sRow.hidden_categories || [],
       budgets: sRow.budgets || {},
       appLock: sRow.app_lock ?? false,
+      photoData: sRow.photo_data || '',
+      categoryIcons: sRow.category_icons || {},
+      categoryColors: sRow.category_colors || {},
+      arabicNumerals: sRow.arabic_numerals ?? false,
+      birthday: sRow.birthday || '',
     };
 
     const mRows = (await pool.query('select * from months where user_id=$1', [uid])).rows;
@@ -101,17 +106,22 @@ router.put('/', async (req, res) => {
         [uid, settings.displayName || '', settings.photoURL || '']);
       await client.query(
         `insert into user_settings
-          (user_id, notifications_enabled, pin, onboarded, bio_enabled, lang, theme, active_month, currency, categories, hidden_categories, budgets, app_lock)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          (user_id, notifications_enabled, pin, onboarded, bio_enabled, lang, theme, active_month, currency, categories, hidden_categories, budgets, app_lock,
+           photo_data, category_icons, category_colors, arabic_numerals, birthday)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
          on conflict (user_id) do update set
            notifications_enabled=excluded.notifications_enabled, pin=excluded.pin, onboarded=excluded.onboarded,
            bio_enabled=excluded.bio_enabled, lang=excluded.lang, theme=excluded.theme, active_month=excluded.active_month,
            currency=excluded.currency, categories=excluded.categories, hidden_categories=excluded.hidden_categories,
-           budgets=excluded.budgets, app_lock=excluded.app_lock`,
+           budgets=excluded.budgets, app_lock=excluded.app_lock,
+           photo_data=excluded.photo_data, category_icons=excluded.category_icons, category_colors=excluded.category_colors,
+           arabic_numerals=excluded.arabic_numerals, birthday=excluded.birthday`,
         [uid, !!settings.notificationsEnabled, settings.pin || '', !!settings.onboarded, !!settings.bioEnabled,
          settings.lang || 'ar', settings.theme || 'light', settings.activeMonth || '', settings.currency || 'IQD',
          JSON.stringify(settings.categories || []), JSON.stringify(settings.hiddenCategories || []),
-         JSON.stringify(settings.budgets || {}), !!settings.appLock]
+         JSON.stringify(settings.budgets || {}), !!settings.appLock,
+         settings.photoData || '', JSON.stringify(settings.categoryIcons || {}), JSON.stringify(settings.categoryColors || {}),
+         !!settings.arabicNumerals, settings.birthday || '']
       );
     }
 
