@@ -64,7 +64,7 @@ router.get('/', async (req, res, next) => {
         secondary: pick(sec, m.id).map((r) => ({ id: r.id, name: r.name, amount: r.amount, isPrimary: false })),
         loans: pick(loans, m.id).map((r) => ({
           id: r.id, name: r.name, amount: r.amount, paid: r.paid,
-          dir: r.dir, type: r.type, monthly: r.monthly, endDate: r.end_date || '',
+          dir: r.dir, type: r.type, monthly: r.monthly, endDate: r.end_date || '', deductFromBalance: r.deduct_from_balance ?? true,
         })),
         installments: pick(inst, m.id).map((r) => ({
           id: r.id, name: r.name, total: r.total, monthly: r.monthly, paid: r.paid, dueDay: r.due_day,
@@ -73,7 +73,7 @@ router.get('/', async (req, res, next) => {
           id: r.id, name: r.name, target: r.target, saved: r.saved, monthly: r.monthly,
         })),
         fixed: pick(fixed, m.id).map((r) => ({
-          id: r.id, name: r.name, cost: r.cost, paid: r.paid, category: r.category || 'Fixed',
+          id: r.id, name: r.name, cost: r.cost, paid: r.paid, category: r.category || 'Fixed', kind: r.kind || 'essential',
         })),
         daily: pick(daily, m.id).map((r) => ({
           id: r.id, name: r.name, amount: r.amount, category: r.category || 'Other', kind: r.kind || 'essential', date: r.date || '', ts: r.ts || 0,
@@ -140,8 +140,8 @@ router.put('/', async (req, res) => {
           await client.query('insert into incomes(month_id,name,amount,is_primary) values($1,$2,$3,false)',
             [mid, s.name || '', num(s.amount)]);
         for (const l of (m.loans || []))
-          await client.query('insert into loans(month_id,name,amount,paid,dir,type,monthly,end_date) values($1,$2,$3,$4,$5,$6,$7,$8)',
-            [mid, l.name || '', num(l.amount), num(l.paid), l.dir || 'owe', l.type || 'lump', num(l.monthly), l.endDate || '']);
+          await client.query('insert into loans(month_id,name,amount,paid,dir,type,monthly,end_date,deduct_from_balance) values($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+            [mid, l.name || '', num(l.amount), num(l.paid), l.dir || 'owe', l.type || 'lump', num(l.monthly), l.endDate || '', l.deductFromBalance !== false]);
         for (const i of (m.installments || []))
           await client.query('insert into installments(month_id,name,total,monthly,paid,due_day) values($1,$2,$3,$4,$5,$6)',
             [mid, i.name || '', num(i.total), num(i.monthly), num(i.paid), i.dueDay == null ? null : parseInt(i.dueDay, 10)]);
@@ -149,8 +149,8 @@ router.put('/', async (req, res) => {
           await client.query('insert into goals(month_id,name,target,saved,monthly) values($1,$2,$3,$4,$5)',
             [mid, g.name || '', num(g.target), num(g.saved), num(g.monthly)]);
         for (const f of (m.fixed || []))
-          await client.query('insert into fixed_expenses(month_id,name,cost,paid,category) values($1,$2,$3,$4,$5)',
-            [mid, f.name || '', num(f.cost), !!f.paid, f.category || 'Fixed']);
+          await client.query('insert into fixed_expenses(month_id,name,cost,paid,category,kind) values($1,$2,$3,$4,$5,$6)',
+            [mid, f.name || '', num(f.cost), !!f.paid, f.category || 'Fixed', f.kind || 'essential']);
         for (const d of (m.daily || []))
           await client.query('insert into daily_expenses(month_id,name,amount,category,kind,date,ts) values($1,$2,$3,$4,$5,$6,$7)',
             [mid, d.name || '', num(d.amount), d.category || 'Other', d.kind || 'essential', d.date || '', num(d.ts)]);
