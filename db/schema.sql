@@ -159,3 +159,5 @@ alter table user_settings add column if not exists accounts jsonb not null defau
 alter table user_settings add column if not exists default_account text not null default '';
 alter table months add column if not exists transfers jsonb not null default '[]';
 alter table daily_expenses add column if not exists account text not null default '';
+alter table goals add column if not exists saved_before double precision not null default 0;
+alter table goals add column if not exists target_date text;

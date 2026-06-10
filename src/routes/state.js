@@ -73,7 +73,7 @@ router.get('/', async (req, res, next) => {
           id: r.id, name: r.name, total: r.total, monthly: r.monthly, paid: r.paid, dueDay: r.due_day, paidBefore: r.paid_before || 0,
         })),
         goals: pick(goals, m.id).map((r) => ({
-          id: r.id, name: r.name, target: r.target, saved: r.saved, monthly: r.monthly,
+          id: r.id, name: r.name, target: r.target, saved: r.saved, monthly: r.monthly, targetDate: r.target_date || null, savedBefore: r.saved_before || 0,
         })),
         fixed: pick(fixed, m.id).map((r) => ({
           id: r.id, name: r.name, cost: r.cost, paid: r.paid, category: r.category || 'Fixed', kind: r.kind || 'essential',
@@ -151,8 +151,8 @@ router.put('/', async (req, res) => {
           await client.query('insert into installments(month_id,name,total,monthly,paid,due_day,paid_before) values($1,$2,$3,$4,$5,$6,$7)',
             [mid, i.name || '', num(i.total), num(i.monthly), num(i.paid), i.dueDay == null ? null : parseInt(i.dueDay, 10), num(i.paidBefore)]);
         for (const g of (m.goals || []))
-          await client.query('insert into goals(month_id,name,target,saved,monthly) values($1,$2,$3,$4,$5)',
-            [mid, g.name || '', num(g.target), num(g.saved), num(g.monthly)]);
+          await client.query('insert into goals(month_id,name,target,saved,monthly,saved_before,target_date) values($1,$2,$3,$4,$5,$6,$7)',
+            [mid, g.name || '', num(g.target), num(g.saved), num(g.monthly), num(g.savedBefore), g.targetDate || null]);
         for (const f of (m.fixed || []))
           await client.query('insert into fixed_expenses(month_id,name,cost,paid,category,kind) values($1,$2,$3,$4,$5,$6)',
             [mid, f.name || '', num(f.cost), !!f.paid, f.category || 'Fixed', f.kind || 'essential']);
