@@ -137,7 +137,7 @@ router.put('/', async (req, res) => {
         const pr = m.primary || {};
         const mr = await client.query(
           'insert into months(user_id, key, primary_name, primary_amount, transfers) values($1,$2,$3,$4,$5) returning id',
-          [uid, key, pr.name || 'Salary', num(pr.amount), JSON.stringify(mo.transfers || [])]
+          [uid, key, pr.name || 'Salary', num(pr.amount), JSON.stringify(m.transfers || [])]
         );
         const mid = mr.rows[0].id;
 
@@ -177,8 +177,8 @@ router.put('/', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     await client.query('rollback');
-    console.error(err);
-    res.status(500).json({ error: 'save_failed' });
+    console.error('PUT /api/state save_failed:', err);
+    res.status(500).json({ error: 'save_failed', detail: String(err && err.message || err) });
   } finally {
     client.release();
   }
