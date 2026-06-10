@@ -153,3 +153,5 @@ alter table fixed_expenses add column if not exists kind text not null default '
 alter table loans add column if not exists deduct_from_balance boolean not null default true;
 alter table installments add column if not exists paid_before double precision not null default 0;
 alter table loans add column if not exists paid_before double precision not null default 0;
+alter table daily_expenses add column if not exists note text not null default '';
+alter table daily_expenses add column if not exists receipt text not null default '';

@@ -76,7 +76,7 @@ router.get('/', async (req, res, next) => {
           id: r.id, name: r.name, cost: r.cost, paid: r.paid, category: r.category || 'Fixed', kind: r.kind || 'essential',
         })),
         daily: pick(daily, m.id).map((r) => ({
-          id: r.id, name: r.name, amount: r.amount, category: r.category || 'Other', kind: r.kind || 'essential', date: r.date || '', ts: r.ts || 0,
+          id: r.id, name: r.name, amount: r.amount, category: r.category || 'Other', kind: r.kind || 'essential', date: r.date || '', ts: r.ts || 0, note: r.note || '', receipt: r.receipt || '',
         })),
         gifts: pick(gifts, m.id).map((r) => ({
           id: r.id, name: r.name, amount: r.amount, note: r.note || '', date: r.date || '',
@@ -152,8 +152,8 @@ router.put('/', async (req, res) => {
           await client.query('insert into fixed_expenses(month_id,name,cost,paid,category,kind) values($1,$2,$3,$4,$5,$6)',
             [mid, f.name || '', num(f.cost), !!f.paid, f.category || 'Fixed', f.kind || 'essential']);
         for (const d of (m.daily || []))
-          await client.query('insert into daily_expenses(month_id,name,amount,category,kind,date,ts) values($1,$2,$3,$4,$5,$6,$7)',
-            [mid, d.name || '', num(d.amount), d.category || 'Other', d.kind || 'essential', d.date || '', num(d.ts)]);
+          await client.query('insert into daily_expenses(month_id,name,amount,category,kind,date,ts,note,receipt) values($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+            [mid, d.name || '', num(d.amount), d.category || 'Other', d.kind || 'essential', d.date || '', num(d.ts), d.note || '', d.receipt || '']);
         for (const gf of (m.gifts || []))
           await client.query('insert into gifts(month_id,name,amount,note,date) values($1,$2,$3,$4,$5)',
             [mid, gf.name || '', num(gf.amount), gf.note || '', gf.date || '']);
