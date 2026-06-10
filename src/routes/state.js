@@ -64,10 +64,10 @@ router.get('/', async (req, res, next) => {
         secondary: pick(sec, m.id).map((r) => ({ id: r.id, name: r.name, amount: r.amount, isPrimary: false })),
         loans: pick(loans, m.id).map((r) => ({
           id: r.id, name: r.name, amount: r.amount, paid: r.paid,
-          dir: r.dir, type: r.type, monthly: r.monthly, endDate: r.end_date || '', deductFromBalance: r.deduct_from_balance ?? true,
+          dir: r.dir, type: r.type, monthly: r.monthly, endDate: r.end_date || '', deductFromBalance: r.deduct_from_balance ?? true, paidBefore: r.paid_before || 0,
         })),
         installments: pick(inst, m.id).map((r) => ({
-          id: r.id, name: r.name, total: r.total, monthly: r.monthly, paid: r.paid, dueDay: r.due_day,
+          id: r.id, name: r.name, total: r.total, monthly: r.monthly, paid: r.paid, dueDay: r.due_day, paidBefore: r.paid_before || 0,
         })),
         goals: pick(goals, m.id).map((r) => ({
           id: r.id, name: r.name, target: r.target, saved: r.saved, monthly: r.monthly,
@@ -140,11 +140,11 @@ router.put('/', async (req, res) => {
           await client.query('insert into incomes(month_id,name,amount,is_primary) values($1,$2,$3,false)',
             [mid, s.name || '', num(s.amount)]);
         for (const l of (m.loans || []))
-          await client.query('insert into loans(month_id,name,amount,paid,dir,type,monthly,end_date,deduct_from_balance) values($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-            [mid, l.name || '', num(l.amount), num(l.paid), l.dir || 'owe', l.type || 'lump', num(l.monthly), l.endDate || '', l.deductFromBalance !== false]);
+          await client.query('insert into loans(month_id,name,amount,paid,dir,type,monthly,end_date,deduct_from_balance,paid_before) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+            [mid, l.name || '', num(l.amount), num(l.paid), l.dir || 'owe', l.type || 'lump', num(l.monthly), l.endDate || '', l.deductFromBalance !== false, num(l.paidBefore)]);
         for (const i of (m.installments || []))
-          await client.query('insert into installments(month_id,name,total,monthly,paid,due_day) values($1,$2,$3,$4,$5,$6)',
-            [mid, i.name || '', num(i.total), num(i.monthly), num(i.paid), i.dueDay == null ? null : parseInt(i.dueDay, 10)]);
+          await client.query('insert into installments(month_id,name,total,monthly,paid,due_day,paid_before) values($1,$2,$3,$4,$5,$6,$7)',
+            [mid, i.name || '', num(i.total), num(i.monthly), num(i.paid), i.dueDay == null ? null : parseInt(i.dueDay, 10), num(i.paidBefore)]);
         for (const g of (m.goals || []))
           await client.query('insert into goals(month_id,name,target,saved,monthly) values($1,$2,$3,$4,$5)',
             [mid, g.name || '', num(g.target), num(g.saved), num(g.monthly)]);

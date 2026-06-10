@@ -151,3 +151,5 @@ alter table user_settings add column if not exists birthday        text    not n
 alter table daily_expenses add column if not exists kind text not null default 'essential';
 alter table fixed_expenses add column if not exists kind text not null default 'essential';
 alter table loans add column if not exists deduct_from_balance boolean not null default true;
+alter table installments add column if not exists paid_before double precision not null default 0;
+alter table loans add column if not exists paid_before double precision not null default 0;
