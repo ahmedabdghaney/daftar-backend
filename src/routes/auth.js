@@ -201,8 +201,9 @@ router.post('/google', async (req, res, next) => {
         [email, name, photo]
       );
       id = ins.rows[0].id;
-      await pool.query('insert into user_settings(user_id) values($1) on conflict do nothing', [id]);
     }
+    // يضمن وجود صف الإعدادات لكل دخول جوجل (جديد أو موجود) — وإلا التحديثات ما تنحفظ
+    await pool.query('insert into user_settings(user_id) values($1) on conflict do nothing', [id]);
     res.json({ token: sign(id), user: await publicUser(id) });
   } catch (err) {
     return res.status(401).json({ error: 'google_verify_failed' });
