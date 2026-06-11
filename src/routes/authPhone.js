@@ -6,6 +6,8 @@ const { sign } = require('../auth');
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const verifySid = process.env.TWILIO_VERIFY_SID;
+// قناة الإرسال: whatsapp (افتراضي) أو sms — تُضبط من متغير البيئة TWILIO_CHANNEL
+const channel = (process.env.TWILIO_CHANNEL || 'whatsapp').toLowerCase();
 const twilioReady = !!(accountSid && authToken && verifySid);
 const client = twilioReady ? require('twilio')(accountSid, authToken) : null;
 
@@ -40,9 +42,9 @@ router.post('/phone/send', async (req, res, next) => {
     if (!phone) return res.status(400).json({ error: 'invalid_phone' });
 
     await client.verify.v2.services(verifySid)
-      .verifications.create({ to: phone, channel: 'sms' });
+      .verifications.create({ to: phone, channel });
 
-    res.json({ ok: true, phone });
+    res.json({ ok: true, phone, channel });
   } catch (err) {
     // أخطاء Twilio الشائعة: رقم غير موثّق بالحساب التجريبي / صيغة خاطئة
     const code = err && err.code;
