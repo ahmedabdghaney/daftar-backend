@@ -95,7 +95,7 @@ router.get('/', async (req, res, next) => {
     }
 
     // حساب جديد أو محذوف ورجع: لا صف إعدادات ولا أشهر — إشارة للتطبيق يمسح نسخته المحلية
-    const fresh = !hadSettingsRow && mRows.length === 0;
+    const fresh = mRows.length === 0;   // حساب بلا أشهر = جديد أو محذوف ورجع
     res.json({ settings, months, fresh });
   } catch (err) { next(err); }
 });
