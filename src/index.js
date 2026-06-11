@@ -11,6 +11,7 @@ app.get('/', (req, res) => res.json({ name: 'Daftar API', status: 'ok' }));
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/auth', require('./routes/authPhone'));
 app.use('/api/state', require('./routes/state'));
 app.use('/admin', require('./routes/admin'));
 

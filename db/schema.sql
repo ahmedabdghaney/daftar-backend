@@ -161,3 +161,9 @@ alter table months add column if not exists transfers jsonb not null default '[]
 alter table daily_expenses add column if not exists account text not null default '';
 alter table goals add column if not exists saved_before double precision not null default 0;
 alter table goals add column if not exists target_date text;
+
+-- ===== دعم تسجيل الدخول بالهاتف (Twilio Verify) =====
+-- رقم الهاتف مستقل عن الإيميل (طريقة دخول منفصلة)
+alter table users add column if not exists phone text unique;
+-- الإيميل صار اختياري (حساب الهاتف ممكن بدون إيميل)
+alter table users alter column email drop not null;
