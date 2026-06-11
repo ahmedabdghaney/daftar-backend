@@ -10,7 +10,9 @@ function num(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
 router.get('/', async (req, res, next) => {
   try {
     const uid = req.userId;
-    const sRow = (await pool.query('select * from user_settings where user_id=$1', [uid])).rows[0] || {};
+    const sRowRes = await pool.query('select * from user_settings where user_id=$1', [uid]);
+    const sRow = sRowRes.rows[0] || {};
+    const hadSettingsRow = sRowRes.rows.length > 0;
     const uRow = (await pool.query('select email, display_name, photo_url, auth_provider from users where id=$1', [uid])).rows[0] || {};
 
     const settings = {
@@ -92,7 +94,9 @@ router.get('/', async (req, res, next) => {
       };
     }
 
-    res.json({ settings, months });
+    // حساب جديد أو محذوف ورجع: لا صف إعدادات ولا أشهر — إشارة للتطبيق يمسح نسخته المحلية
+    const fresh = !hadSettingsRow && mRows.length === 0;
+    res.json({ settings, months, fresh });
   } catch (err) { next(err); }
 });
 
