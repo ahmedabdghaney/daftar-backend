@@ -210,35 +210,6 @@ router.post('/google', async (req, res, next) => {
   }
 });
 
-// ===== ٧) حذف الحساب (حذف ناعم) =====
-// يوسم المستخدم محذوفاً ويفرّغ بياناته المالية ويبطل دخوله — يبقى ظاهر باللوحة
-router.delete('/delete-account', requireAuth, async (req, res, next) => {
-  const client = await pool.connect();
-  try {
-    await client.query('begin');
-    // نفرّغ البيانات المالية (cascade من months) لكن نبقي صف المستخدم للوحة
-    await client.query('delete from months where user_id=$1', [req.userId]);
-    // نحرّر الإيميل/الهاتف بإضافة لاحقة حتى يقدر يسجّل من جديد بنفسهم
-    await client.query(
-      `update users
-         set deleted_at = now(),
-             banned = true,
-             password_hash = null,
-             email = case when email is not null then email || '.deleted.' || extract(epoch from now())::bigint else null end,
-             phone = case when phone is not null then phone || '.deleted.' || extract(epoch from now())::bigint else null end
-       where id=$1`,
-      [req.userId]
-    );
-    await client.query('commit');
-    res.json({ ok: true });
-  } catch (err) {
-    await client.query('rollback');
-    next(err);
-  } finally {
-    client.release();
-  }
-});
-
 // المستخدم الحالي
 router.get('/me', requireAuth, async (req, res, next) => {
   try { res.json({ user: await publicUser(req.userId) }); }

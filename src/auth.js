@@ -17,11 +17,9 @@ async function requireAuth(req, res, next) {
   if (!token) return res.status(401).json({ error: 'no_token' });
   try {
     const payload = jwt.verify(token, SECRET);
-    // نتحقق إن المستخدم لسه موجود وغير محذوف (لو محذوف يصير التوكن غير صالح فوراً)
-    const r = await pool.query('select deleted_at from users where id=$1', [payload.sub]);
-    if (r.rows.length === 0 || r.rows[0].deleted_at) {
-      return res.status(401).json({ error: 'account_deleted' });
-    }
+    // نتحقق إن المستخدم لسه موجود (لو محذوف من اللوحة يصير التوكن غير صالح فوراً)
+    const exists = await pool.query('select 1 from users where id=$1', [payload.sub]);
+    if (exists.rows.length === 0) return res.status(401).json({ error: 'account_deleted' });
     req.userId = payload.sub;
     next();
   } catch {
