@@ -167,3 +167,9 @@ alter table goals add column if not exists target_date text;
 alter table users add column if not exists phone text unique;
 -- الإيميل صار اختياري (حساب الهاتف ممكن بدون إيميل)
 alter table users alter column email drop not null;
+
+-- ===== حذف الحساب (حذف ناعم — يبقى ظاهر باللوحة موسوماً "محذوف") =====
+alter table users add column if not exists deleted_at timestamptz;
+
+-- ===== تتبّع آخر تسجيل دخول (للوحة التحكم) =====
+alter table users add column if not exists last_login_at timestamptz;

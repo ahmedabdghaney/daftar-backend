@@ -13,10 +13,11 @@ function requireAdmin(req, res, next) {
 // ملخّص + إحصائيات + سلسلة التسجيلات لآخر 14 يوم
 router.get('/stats', requireAdmin, async (req, res, next) => {
   try {
-    const total = (await pool.query('select count(*) c from users')).rows[0].c;
-    const today = (await pool.query("select count(*) c from users where created_at >= date_trunc('day', now())")).rows[0].c;
-    const week = (await pool.query("select count(*) c from users where created_at >= now() - interval '7 days'")).rows[0].c;
-    const google = (await pool.query("select count(*) c from users where auth_provider='google'")).rows[0].c;
+    const total = (await pool.query('select count(*) c from users where deleted_at is null')).rows[0].c;
+    const today = (await pool.query("select count(*) c from users where deleted_at is null and created_at >= date_trunc('day', now())")).rows[0].c;
+    const week = (await pool.query("select count(*) c from users where deleted_at is null and created_at >= now() - interval '7 days'")).rows[0].c;
+    const google = (await pool.query("select count(*) c from users where deleted_at is null and auth_provider='google'")).rows[0].c;
+    const deleted = (await pool.query('select count(*) c from users where deleted_at is not null')).rows[0].c;
     const months = (await pool.query('select count(*) c from months')).rows[0].c;
 
     // حركات: يومية + ثابتة + هدايا + عناصر مجموعات
@@ -37,7 +38,7 @@ router.get('/stats', requireAdmin, async (req, res, next) => {
     res.json({
       total: Number(total), today: Number(today), week: Number(week),
       google: Number(google), email: Number(total) - Number(google),
-      months: Number(months), tx: Number(tx),
+      months: Number(months), tx: Number(tx), deleted: Number(deleted),
       series: series.map(r => ({ day: r.day, count: Number(r.count) }))
     });
   } catch (err) { next(err); }
@@ -51,7 +52,7 @@ router.get('/users', requireAdmin, async (req, res, next) => {
     let where = '';
     if (q) { params.push('%' + q + '%'); where = 'where lower(u.email) like $1 or lower(u.display_name) like $1'; }
     const users = await pool.query(`
-      select u.id, u.email, u.display_name, u.auth_provider, u.photo_url, u.banned, u.created_at,
+      select u.id, u.email, u.display_name, u.auth_provider, u.photo_url, u.banned, u.deleted_at, u.created_at, u.last_login_at,
              (select count(*) from months m where m.user_id = u.id) as months
       from users u ${where}
       order by u.created_at desc`, params);
@@ -63,7 +64,7 @@ router.get('/users', requireAdmin, async (req, res, next) => {
 router.get('/users/:id', requireAdmin, async (req, res, next) => {
   try {
     const id = req.params.id;
-    const u = (await pool.query('select id,email,display_name,auth_provider,photo_url,created_at from users where id=$1', [id])).rows[0];
+    const u = (await pool.query('select id,email,display_name,auth_provider,photo_url,deleted_at,created_at,last_login_at from users where id=$1', [id])).rows[0];
     if (!u) return res.status(404).json({ error: 'not_found' });
     const months = (await pool.query('select key from months where user_id=$1 order by key desc', [id])).rows.map(r => r.key);
     const counts = (await pool.query(`
@@ -162,6 +163,7 @@ const PAGE = String.raw`<!doctype html>
   .avatar { width:34px; height:34px; border-radius:50%; object-fit:cover; background:#1d2330; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--muted); vertical-align:middle; }
   .name-cell { display:flex; align-items:center; gap:10px; }
   .banned-badge { font-size:10px; padding:2px 7px; border-radius:20px; background:rgba(255,91,82,.15); color:var(--red); margin-right:6px; }
+  .deleted-badge { font-size:10px; padding:2px 7px; border-radius:20px; background:rgba(138,147,160,.18); color:var(--muted); margin-right:6px; }
   .act { background:transparent; border:0; cursor:pointer; font-size:13px; padding:4px 6px; }
   .act.ban { color:#e6a23c; }
   .act.unban { color:var(--green); }
@@ -196,7 +198,7 @@ const PAGE = String.raw`<!doctype html>
       <div class="stat"><div class="n" id="s-total">—</div><div class="l">المستخدمين</div></div>
       <div class="stat"><div class="n" id="s-week">—</div><div class="l">هذا الأسبوع</div></div>
       <div class="stat"><div class="n" id="s-today">—</div><div class="l">اليوم</div></div>
-      <div class="stat"><div class="n" id="s-tx">—</div><div class="l">إجمالي الحركات</div></div>
+      <div class="stat"><div class="n" id="s-deleted" style="color:var(--red)">—</div><div class="l">حسابات محذوفة</div></div>
     </div>
 
     <div class="panelbox barwrap">
@@ -204,10 +206,11 @@ const PAGE = String.raw`<!doctype html>
       <div class="chart" id="chart"></div>
     </div>
 
-    <div class="panelbox" style="display:flex;gap:24px">
+    <div class="panelbox" style="display:flex;gap:24px;flex-wrap:wrap">
       <div><div class="l" style="color:var(--muted);font-size:12px">دخول بالإيميل</div><div style="font-size:20px;font-weight:800" id="s-email">—</div></div>
       <div><div class="l" style="color:var(--muted);font-size:12px">دخول بجوجل</div><div style="font-size:20px;font-weight:800;color:var(--green)" id="s-google">—</div></div>
       <div><div class="l" style="color:var(--muted);font-size:12px">إجمالي الشهور</div><div style="font-size:20px;font-weight:800" id="s-months">—</div></div>
+      <div><div class="l" style="color:var(--muted);font-size:12px">إجمالي الحركات</div><div style="font-size:20px;font-weight:800" id="s-tx">—</div></div>
     </div>
 
     <div class="topbar">
@@ -223,7 +226,7 @@ const PAGE = String.raw`<!doctype html>
     </div>
 
     <table>
-      <thead><tr><th style="width:18%">الاسم</th><th style="width:14%">الإيميل</th><th style="width:10%">الدخول</th><th style="width:8%">الشهور</th><th style="width:14%">التسجيل</th><th style="width:18%">إجراء</th></tr></thead>
+      <thead><tr><th style="width:16%">الاسم</th><th style="width:13%">الإيميل</th><th style="width:9%">الدخول</th><th style="width:7%">الشهور</th><th style="width:12%">التسجيل</th><th style="width:13%">آخر دخول</th><th style="width:16%">إجراء</th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
   </div>
@@ -239,6 +242,7 @@ let searchTimer = null;
 
 function api(path){ return fetch('/admin'+path, { headers: { 'x-admin-key': KEY } }); }
 function fmtDate(s){ try { return new Date(s).toLocaleDateString('ar',{year:'numeric',month:'short',day:'numeric'}); } catch(e){ return s; } }
+function fmtDateTime(s){ try { return new Date(s).toLocaleDateString('ar',{year:'numeric',month:'short',day:'numeric'})+' · '+new Date(s).toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'}); } catch(e){ return s; } }
 
 async function load(){
   try {
@@ -251,6 +255,7 @@ async function load(){
     document.getElementById('s-total').textContent = d.total;
     document.getElementById('s-week').textContent = d.week;
     document.getElementById('s-today').textContent = d.today;
+    document.getElementById('s-deleted').textContent = d.deleted || 0;
     document.getElementById('s-tx').textContent = d.tx;
     document.getElementById('s-email').textContent = d.email;
     document.getElementById('s-google').textContent = d.google;
@@ -273,25 +278,36 @@ async function loadUsers(q){
   if (!r.ok) return;
   const d = await r.json();
   const rows = d.users.map(function(u){
+    const isDeleted = !!u.deleted_at;
     const prov = u.auth_provider === 'google' ? '<span class="tag g">Google</span>' : '<span class="tag">Email</span>';
     const initial = (u.display_name || u.email || '?').trim().charAt(0).toUpperCase();
     const avatar = u.photo_url
       ? '<img class="avatar" src="'+u.photo_url+'" onerror="this.outerHTML=\'<span class=&quot;avatar&quot;>'+initial+'</span>\'"/>'
       : '<span class="avatar">'+initial+'</span>';
-    const bannedBadge = u.banned ? '<span class="banned-badge">محظور</span>' : '';
-    const banBtn = u.banned
-      ? '<button class="act unban" onclick="event.stopPropagation(); toggleBan(\'' + u.id + '\', false)">فك الحظر</button>'
-      : '<button class="act ban" onclick="event.stopPropagation(); toggleBan(\'' + u.id + '\', true)">حظر</button>';
-    return '<tr class="' + (u.banned ? 'is-banned' : '') + '" onclick="openUser(\'' + u.id + '\')">' +
-      '<td><div class="name-cell">'+avatar+'<span>'+bannedBadge+(u.display_name||'—')+'</span></div></td>' +
-      '<td>'+(u.email||'—')+'</td>' +
+    // الإيميل ينحفظ بلاحقة .deleted.<ts> عند الحذف — ننظفها للعرض
+    const cleanEmail = (u.email || '').replace(/\.deleted\.\d+$/, '');
+    const deletedBadge = isDeleted ? '<span class="deleted-badge">محذوف</span>' : '';
+    const bannedBadge = (!isDeleted && u.banned) ? '<span class="banned-badge">محظور</span>' : '';
+    let actions;
+    if (isDeleted) {
+      actions = '<span style="color:var(--muted);font-size:12px">—</span>';
+    } else {
+      const banBtn = u.banned
+        ? '<button class="act unban" onclick="event.stopPropagation(); toggleBan(\'' + u.id + '\', false)">فك الحظر</button>'
+        : '<button class="act ban" onclick="event.stopPropagation(); toggleBan(\'' + u.id + '\', true)">حظر</button>';
+      actions = banBtn + '<button class="act del" onclick="event.stopPropagation(); delUser(\'' + u.id + '\',\'' + cleanEmail + '\')">حذف</button>';
+    }
+    return '<tr class="' + ((u.banned || isDeleted) ? 'is-banned' : '') + '" onclick="openUser(\'' + u.id + '\')">' +
+      '<td><div class="name-cell">'+avatar+'<span>'+deletedBadge+bannedBadge+(u.display_name||'—')+'</span></div></td>' +
+      '<td>'+(cleanEmail||'—')+'</td>' +
       '<td>'+prov+'</td>' +
       '<td>'+u.months+'</td>' +
       '<td>'+fmtDate(u.created_at)+'</td>' +
-      '<td style="white-space:nowrap">'+banBtn+'<button class="act del" onclick="event.stopPropagation(); delUser(\'' + u.id + '\',\'' + (u.email||'') + '\')">حذف</button></td>' +
+      '<td>'+(u.last_login_at ? fmtDate(u.last_login_at) : '—')+'</td>' +
+      '<td style="white-space:nowrap">'+actions+'</td>' +
     '</tr>';
   }).join('');
-  document.getElementById('rows').innerHTML = rows || '<tr><td colspan="6" style="color:var(--muted)">لا يوجد مستخدمين</td></tr>';
+  document.getElementById('rows').innerHTML = rows || '<tr><td colspan="7" style="color:var(--muted)">لا يوجد مستخدمين</td></tr>';
 }
 
 function searchUsers(){
@@ -305,11 +321,17 @@ async function openUser(id){
   if (!r.ok) return;
   const d = await r.json();
   const u = d.user;
+  const cleanEmail = (u.email || '').replace(/\.deleted\.\d+$/, '');
+  const delRow = u.deleted_at
+    ? '<div class="row"><span class="k">الحالة</span><span style="color:var(--red)">محذوف · '+fmtDate(u.deleted_at)+'</span></div>'
+    : '';
   document.getElementById('modalBox').innerHTML =
     '<div style="font-size:18px;font-weight:800;margin-bottom:4px">'+(u.display_name||'—')+'</div>' +
-    '<div style="color:var(--muted);font-size:13px;margin-bottom:16px">'+(u.email||'')+'</div>' +
+    '<div style="color:var(--muted);font-size:13px;margin-bottom:16px">'+(cleanEmail||'')+'</div>' +
+    delRow +
     '<div class="row"><span class="k">طريقة الدخول</span><span>'+(u.auth_provider||'—')+'</span></div>' +
     '<div class="row"><span class="k">تاريخ التسجيل</span><span>'+fmtDate(u.created_at)+'</span></div>' +
+    '<div class="row"><span class="k">آخر دخول</span><span>'+(u.last_login_at ? fmtDateTime(u.last_login_at) : '—')+'</span></div>' +
     '<div class="row"><span class="k">عدد الشهور</span><span>'+d.months.length+'</span></div>' +
     '<div class="row"><span class="k">مصاريف يومية</span><span>'+d.counts.daily+'</span></div>' +
     '<div class="row"><span class="k">مصاريف ثابتة</span><span>'+d.counts.fixed+'</span></div>' +

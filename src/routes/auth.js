@@ -12,6 +12,12 @@ async function publicUser(id) {
   return u.rows[0];
 }
 
+// يسجّل وقت آخر دخول للمستخدم (للوحة التحكم)
+async function touchLogin(id) {
+  try { await pool.query('update users set last_login_at = now() where id=$1', [id]); }
+  catch { /* ما يوقف تسجيل الدخول لو فشل */ }
+}
+
 // ===== أدوات الرموز =====
 function genCode() {
   return String(Math.floor(100000 + Math.random() * 900000)); // 6 أرقام
@@ -88,6 +94,7 @@ router.post('/verify-otp', async (req, res, next) => {
     const id = r.rows[0].id;
     await pool.query('insert into user_settings(user_id) values($1) on conflict do nothing', [id]);
     await pool.query('delete from email_codes where id=$1', [v.row.id]);
+    await touchLogin(id);
     res.json({ token: sign(id), user: await publicUser(id) });
   } catch (err) { next(err); }
 });
@@ -123,6 +130,7 @@ router.post('/login', async (req, res, next) => {
     if (r.rows[0].banned) return res.status(403).json({ error: 'banned' });
     const ok = await compare(password || '', r.rows[0].password_hash);
     if (!ok) return res.status(401).json({ error: 'bad_credentials' });
+    await touchLogin(r.rows[0].id);
     res.json({ token: sign(r.rows[0].id), user: await publicUser(r.rows[0].id) });
   } catch (err) { next(err); }
 });
@@ -204,9 +212,39 @@ router.post('/google', async (req, res, next) => {
     }
     // يضمن وجود صف الإعدادات لكل دخول جوجل (جديد أو موجود) — وإلا التحديثات ما تنحفظ
     await pool.query('insert into user_settings(user_id) values($1) on conflict do nothing', [id]);
+    await touchLogin(id);
     res.json({ token: sign(id), user: await publicUser(id) });
   } catch (err) {
     return res.status(401).json({ error: 'google_verify_failed' });
+  }
+});
+
+// ===== ٧) حذف الحساب (حذف ناعم) =====
+// يوسم المستخدم محذوفاً ويفرّغ بياناته المالية ويبطل دخوله — يبقى ظاهر باللوحة
+router.delete('/delete-account', requireAuth, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    // نفرّغ البيانات المالية (cascade من months) لكن نبقي صف المستخدم للوحة
+    await client.query('delete from months where user_id=$1', [req.userId]);
+    // نحرّر الإيميل/الهاتف بإضافة لاحقة حتى يقدر يسجّل من جديد بنفسهم
+    await client.query(
+      `update users
+         set deleted_at = now(),
+             banned = true,
+             password_hash = null,
+             email = case when email is not null then email || '.deleted.' || extract(epoch from now())::bigint else null end,
+             phone = case when phone is not null then phone || '.deleted.' || extract(epoch from now())::bigint else null end
+       where id=$1`,
+      [req.userId]
+    );
+    await client.query('commit');
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query('rollback');
+    next(err);
+  } finally {
+    client.release();
   }
 });
 

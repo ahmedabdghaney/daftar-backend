@@ -86,6 +86,7 @@ router.post('/phone/verify', async (req, res, next) => {
       id = ins.rows[0].id;
     }
     await pool.query('insert into user_settings(user_id) values($1) on conflict do nothing', [id]);
+    try { await pool.query('update users set last_login_at = now() where id=$1', [id]); } catch {}
 
     res.json({ token: sign(id), user: await publicUser(id) });
   } catch (err) {
